@@ -43,45 +43,17 @@ def travisTestJavaOptions: Seq[String] = {
 }
 
 def gcJavaOptions: Seq[String] = {
-  val javaVersion = System.getProperty("java.version")
-  if (javaVersion.startsWith("1.8")) {
-    jdk8GcJavaOptions
-  } else {
-    jdk11GcJavaOptions
-  }
-}
-
-def jdk8GcJavaOptions: Seq[String] = {
   Seq(
-    "-XX:+UseParNewGC",
-    "-XX:+UseConcMarkSweepGC",
-    "-XX:+CMSParallelRemarkEnabled",
-    "-XX:+CMSClassUnloadingEnabled",
+    "-XX:+UseG1GC",
     "-XX:ReservedCodeCacheSize=128m",
-    "-XX:SurvivorRatio=128",
-    "-XX:MaxTenuringThreshold=0",
     "-Xss8M",
     "-Xms512M",
     "-Xmx2G"
   )
 }
 
-def jdk11GcJavaOptions: Seq[String] = {
-  Seq(
-    "-XX:+UseConcMarkSweepGC",
-    "-XX:+CMSParallelRemarkEnabled",
-    "-XX:+CMSClassUnloadingEnabled",
-    "-XX:ReservedCodeCacheSize=128m",
-    "-XX:SurvivorRatio=128",
-    "-XX:MaxTenuringThreshold=0",
-    "-Xss8M",
-    "-Xms512M",
-    "-Xmx2G"
-  )
-}
-
-val _scalaVersion = "2.13.6"
-val _crossScalaVersions = Seq("2.12.12", "2.13.6")
+val _scalaVersion = "2.13.18"
+val _crossScalaVersions = Seq("2.12.20", "2.13.18")
 
 val defaultScalaSettings = Seq(
   scalaVersion := _scalaVersion,
@@ -96,13 +68,13 @@ val defaultScala3EnabledSettings = Seq(
 // to account for there differences but should merge these artifacts as they are updated.
 val scalaDependencies = Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4")
 val scala2cOptions = Seq(
-  "-target:jvm-1.8",
+  "-release:21",
   // Needs -missing-interpolator due to https://issues.scala-lang.org/browse/SI-8761
   "-Xlint:-missing-interpolator",
   "-Yrangepos"
 )
 val scala3cOptions = Seq(
-  "-Xtarget:8"
+  "-Xtarget:21"
 )
 
 val scala3Dependencies = scalaDependencies ++ Seq(
@@ -153,15 +125,17 @@ val baseSettings = Seq(
   },
   // Note: Use -Xlint rather than -Xlint:unchecked when TestThriftStructure
   // warnings are resolved
-  javacOptions ++= Seq("-Xlint:unchecked", "-source", "1.8", "-target", "1.8"),
-  doc / javacOptions := Seq("-source", "1.8"),
+  javacOptions ++= Seq("-Xlint:unchecked", "-source", "21", "-target", "21"),
+  doc / javacOptions := Seq("-source", "21"),
   javaOptions ++= Seq(
     "-Djava.net.preferIPv4Stack=true",
-    "-XX:+AggressiveOpts",
     "-server"
   ),
   javaOptions ++= gcJavaOptions,
   Test / javaOptions ++= travisTestJavaOptions,
+  Test / javaOptions ++= Seq(
+    "--add-opens=java.base/java.lang=ALL-UNNAMED"
+  ),
   // -a: print stack traces for failing asserts
   testOptions += Tests.Argument(TestFrameworks.JUnit, "-a"),
   // This is bad news for things like com.twitter.util.Time
@@ -217,10 +191,10 @@ val sharedScala3EnabledSettings =
 val settingsCrossCompiledWithTwoTen =
   baseSettings ++
     Seq(
-      crossScalaVersions := Seq("2.10.7") ++ _crossScalaVersions,
+      crossScalaVersions := _crossScalaVersions,
       scalaVersion := _scalaVersion,
-      javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint:unchecked"),
-      doc / javacOptions := Seq("-source", "1.8"),
+      javacOptions ++= Seq("-source", "21", "-target", "21", "-Xlint:unchecked"),
+      doc / javacOptions := Seq("-source", "21"),
       libraryDependencies ++= Seq(
         "org.scalacheck" %% "scalacheck" % "1.14.3" % "test"
       )
