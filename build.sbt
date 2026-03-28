@@ -4,13 +4,15 @@ Global / excludeLintKeys += scalacOptions // might be actually unused in util-do
 // All Twitter library releases are date versioned as YY.MM.patch
 val releaseVersion = "24.8.0-SNAPSHOT"
 
-val slf4jVersion = "1.7.30"
-val jacksonVersion = "2.14.3"
-val json4sVersion = "4.0.3"
-val mockitoVersion = "3.3.3"
-val mockitoScalaVersion = "1.14.8"
+val slf4jVersion = "2.0.17"
+val jacksonVersion = "2.21.2"
 
-val zkVersion = "3.5.6"
+val jacksonAnnotationVersion = "2.21"
+val json4sVersion = "4.0.7"
+val mockitoVersion = "5.23.0"
+val mockitoScalaVersion = "2.1.0"
+
+val zkVersion = "3.9.5"
 val zkClientVersion = "0.0.81"
 val zkGroupVersion = "0.0.92"
 val zkDependency = "org.apache.zookeeper" % "zookeeper" % zkVersion excludeAll (
@@ -19,12 +21,12 @@ val zkDependency = "org.apache.zookeeper" % "zookeeper" % zkVersion excludeAll (
   ExclusionRule("javax.jms", "jms")
 )
 
-val guavaLib = "com.google.guava" % "guava" % "25.1-jre"
-val caffeineLib = "com.github.ben-manes.caffeine" % "caffeine" % "2.9.3"
-val jsr305Lib = "com.google.code.findbugs" % "jsr305" % "2.0.1"
-val scalacheckLib = "org.scalacheck" %% "scalacheck" % "1.15.4" % "test"
+val guavaLib = "com.google.guava" % "guava" % "33.5.0-jre"
+val caffeineLib = "com.github.ben-manes.caffeine" % "caffeine" % "3.2.3"
+val jsr305Lib = "com.google.code.findbugs" % "jsr305" % "3.0.2"
+val scalacheckLib = "org.scalacheck" %% "scalacheck" % "1.19.0" % "test"
 val slf4jApi = "org.slf4j" % "slf4j-api" % slf4jVersion
-val snakeyaml = "org.yaml" % "snakeyaml" % "1.28"
+val snakeyaml = "org.yaml" % "snakeyaml" % "2.6"
 
 def travisTestJavaOptions: Seq[String] = {
   // We have some custom configuration for the Travis environment
@@ -66,7 +68,7 @@ val defaultScala3EnabledSettings = Seq(
 
 // Our dependencies or compiler options may differ for both Scala 2 and 3. We branch here
 // to account for there differences but should merge these artifacts as they are updated.
-val scalaDependencies = Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4")
+val scalaDependencies = Seq("org.scala-lang.modules" %% "scala-collection-compat" % "2.14.0")
 val scala2cOptions = Seq(
   "-release:21",
   // Needs -missing-interpolator due to https://issues.scala-lang.org/browse/SI-8761
@@ -78,12 +80,12 @@ val scala3cOptions = Seq(
 )
 
 val scala3Dependencies = scalaDependencies ++ Seq(
-  "org.scalatest" %% "scalatest" % "3.2.9" % "test",
-  "org.scalatestplus" %% "junit-4-13" % "3.2.9.0" % "test"
+  "org.scalatest" %% "scalatest" % "3.2.20" % "test",
+  "org.scalatestplus" %% "junit-4-13" % "3.2.20.0" % "test"
 )
 val scala2Dependencies = scalaDependencies ++ Seq(
-  "org.scalatest" %% "scalatest" % "3.1.2" % "test",
-  "org.scalatestplus" %% "junit-4-12" % "3.1.2.0" % "test"
+  "org.scalatest" %% "scalatest" % "3.2.20" % "test",
+  "org.scalatestplus" %% "junit-4-12" % "3.2.2.0" % "test"
 )
 
 val baseSettings = Seq(
@@ -196,7 +198,7 @@ val settingsCrossCompiledWithTwoTen =
       javacOptions ++= Seq("-source", "21", "-target", "21", "-Xlint:unchecked"),
       doc / javacOptions := Seq("-source", "21"),
       libraryDependencies ++= Seq(
-        "org.scalacheck" %% "scalacheck" % "1.14.3" % "test"
+        "org.scalacheck" %% "scalacheck" % "1.19.0" % "test"
       )
     )
 
@@ -207,11 +209,11 @@ lazy val noPublishSettings = Seq(
 def scalatestMockitoVersionedDep(scalaVersion: String) = {
   if (scalaVersion.startsWith("2")) {
     Seq(
-      "org.scalatestplus" %% "mockito-3-3" % "3.1.2.0" % "test"
+      "org.scalatestplus" %% "mockito-3-3" % "3.2.2.0" % "test"
     )
   } else {
     Seq(
-      "org.scalatestplus" %% "mockito-3-4" % "3.2.9.0" % "test"
+      "org.scalatestplus" %% "mockito-3-4" % "3.2.10.0" % "test"
     )
   }
 }
@@ -219,11 +221,11 @@ def scalatestMockitoVersionedDep(scalaVersion: String) = {
 def scalatestScalacheckVersionedDep(scalaVersion: String) = {
   if (scalaVersion.startsWith("2")) {
     Seq(
-      "org.scalatestplus" %% "scalacheck-1-14" % "3.1.2.0" % "test"
+      "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % "test"
     )
   } else {
     Seq(
-      "org.scalatestplus" %% "scalacheck-1-15" % "3.2.9.0" % "test"
+      "org.scalatestplus" %% "scalacheck-1-15" % "3.2.11.0" % "test"
     )
   }
 }
@@ -376,11 +378,11 @@ lazy val utilCore = Project(
       if (scalaVersion.value.startsWith("2")) {
         Seq(
           "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-          "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
+          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
         )
       } else {
         Seq(
-          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.0.0"
+          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
         )
       }
     },
@@ -398,7 +400,7 @@ lazy val utilCore = Project(
       // Monitors.java causes "not found: type Monitor$" (CSL-5034)
       // so exclude it from the sources used for scaladoc
       val previous = (Compile / doc / sources).value
-      previous.filterNot(file => file.getName() == "Monitors.java")
+      previous.filterNot(file => file.getName == "Monitors.java")
     }
   ).dependsOn(utilFunction)
 
@@ -466,11 +468,11 @@ lazy val utilJackson = Project(
       "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % jacksonVersion,
       "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % jacksonVersion,
       "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion exclude ("com.google.guava", "guava"),
-      "jakarta.validation" % "jakarta.validation-api" % "3.0.0",
+      "jakarta.validation" % "jakarta.validation-api" % "3.1.1",
       "org.json4s" %% "json4s-core" % json4sVersion,
-      "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion % "test",
+      "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonAnnotationVersion % "test",
       scalacheckLib,
-      "org.scalatestplus" %% "scalacheck-1-14" % "3.1.2.0" % "test",
+      "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % "test",
       "org.slf4j" % "slf4j-simple" % slf4jVersion % "test"
     )
   ).dependsOn(
@@ -608,14 +610,14 @@ lazy val utilStats = Project(
       ("com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion exclude ("com.google.guava", "guava"))
         .cross(CrossVersion.for3Use2_13),
       "org.mockito" % "mockito-core" % mockitoVersion % "test"
-    ) ++ scalatestMockitoVersionedDep(scalaVersion.value)
-      ++ scalatestScalacheckVersionedDep(scalaVersion.value)
-      ++ {
+    ) ++
+      scalatestMockitoVersionedDep(scalaVersion.value) ++
+      scalatestScalacheckVersionedDep(scalaVersion.value) ++ {
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((2, major)) if major <= 12 =>
             Seq()
           case _ =>
-            Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.3" % "test")
+            Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0" % "test")
         }
       }
   ).dependsOn(utilApp, utilCore, utilLint)
@@ -641,7 +643,7 @@ lazy val utilThrift = Project(
   ).settings(
     name := "util-thrift",
     libraryDependencies ++= Seq(
-      "org.apache.thrift" % "libthrift" % "0.10.0",
+      "org.apache.thrift" % "libthrift" % "0.22.0",
       slf4jApi % "provided",
       "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
       "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion
@@ -672,12 +674,12 @@ lazy val utilValidator = Project(
     libraryDependencies ++= Seq(
       caffeineLib,
       scalacheckLib,
-      "jakarta.validation" % "jakarta.validation-api" % "3.0.0",
-      "org.hibernate.validator" % "hibernate-validator" % "7.0.1.Final",
-      "org.glassfish" % "jakarta.el" % "4.0.0",
+      "jakarta.validation" % "jakarta.validation-api" % "3.1.1",
+      "org.hibernate.validator" % "hibernate-validator" % "9.0.1.Final",
+      "org.glassfish" % "jakarta.el" % "4.0.2",
       "org.json4s" %% "json4s-core" % json4sVersion,
-      "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion % "test",
-      "org.scalatestplus" %% "scalacheck-1-14" % "3.1.2.0" % "test",
+      "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonAnnotationVersion % "test",
+      "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % "test",
       "org.slf4j" % "slf4j-simple" % slf4jVersion % "test"
     )
   ).dependsOn(utilCore, utilReflect, utilSlf4jApi, utilValidatorConstraint)
@@ -689,7 +691,7 @@ lazy val utilValidatorConstraint = Project(
     settingsCrossCompiledWithTwoTen
   ).settings(
     libraryDependencies ++= Seq(
-      "jakarta.validation" % "jakarta.validation-api" % "3.0.0"
+      "jakarta.validation" % "jakarta.validation-api" % "3.1.1"
     )
   )
 
@@ -703,7 +705,7 @@ lazy val utilZk = Project(
     libraryDependencies ++= Seq(
       zkDependency,
       "org.mockito" % "mockito-core" % mockitoVersion % "test",
-      "org.scalatestplus" %% "mockito-3-3" % "3.1.2.0" % "test"
+      "org.scalatestplus" %% "mockito-3-3" % "3.2.2.0" % "test"
     )
   ).dependsOn(utilCore, utilLogging)
 

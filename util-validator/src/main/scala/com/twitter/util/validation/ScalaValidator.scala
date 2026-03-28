@@ -24,6 +24,7 @@ import java.util.Collections
 import org.hibernate.validator.{HibernateValidator, HibernateValidatorConfiguration}
 import org.hibernate.validator.internal.engine.constraintvalidation.ConstraintValidatorManager
 import org.hibernate.validator.internal.engine.path.PathImpl
+import jakarta.validation.Path
 import org.hibernate.validator.internal.engine.{ValidatorFactoryImpl, ValidatorFactoryInspector}
 import org.hibernate.validator.internal.metadata.aggregated.{
   CascadingMetaDataBuilder,
@@ -806,7 +807,7 @@ class ScalaValidator private[validation] (
       val length = constraints.length
       while (index < length) {
         val annotation = constraints(index)
-        val path = PathImpl.createRootPath
+        val path = PathImpl.createRootPath()
         path.addPropertyNode(fieldName)
         val clazz = classOf[Any]
         val scalaType = Reflector.scalaTypeOf(value.getClass)
@@ -1054,7 +1055,7 @@ class ScalaValidator private[validation] (
             val indexedPropertyPath = {
               val indexedPath = PathImpl.createCopyWithoutLeafNode(caseClassPath)
               indexedPath.addPropertyNode(
-                s"${caseClassPath.getLeafNode.asString()}[${index.toString}]")
+                s"${caseClassPath.getLeafNode.toString}[${index.toString}]")
               indexedPath
             }
             val violations = validate[T](
@@ -1452,7 +1453,7 @@ class ScalaValidator private[validation] (
     rootClazz: Option[Class[T]],
     root: Option[T],
     leaf: Option[Any],
-    path: PathImpl,
+    path: Path,
     annotation: MethodValidation,
     method: Method,
     result: MethodValidationResult,
@@ -1486,7 +1487,7 @@ class ScalaValidator private[validation] (
           val length = annotationFields.length
           while (index < length) {
             val fieldName = annotationFields(index)
-            val parameterPath = PathImpl.createCopy(path)
+            val parameterPath = PathImpl.createCopy(path.asInstanceOf[PathImpl])
             parameterPath.addParameterNode(fieldName, index)
             results.add(
               methodValidationConstraintViolation(
@@ -1499,7 +1500,7 @@ class ScalaValidator private[validation] (
           if (results.nonEmpty) results.toSet
           else Set.empty[ConstraintViolation[T]]
         } else {
-          Set(methodValidationConstraintViolation(path, invalid.message, invalid.payload.orNull))
+          Set(methodValidationConstraintViolation(PathImpl.createCopy(path.asInstanceOf[PathImpl]), invalid.message, invalid.payload.orNull))
         }
       case _ => Set.empty[ConstraintViolation[T]]
     }

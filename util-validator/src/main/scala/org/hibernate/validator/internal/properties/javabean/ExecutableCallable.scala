@@ -31,7 +31,8 @@ private object ExecutableCallable {
               index,
               parameterArray(index),
               parameterTypes(index),
-              getErasedTypeIfTypeVariable(genericParameterTypes(index))))
+              parameterArray(index).getAnnotatedType,
+              parameterArray(index).getAnnotations))
 
           index += 1
         }
@@ -56,7 +57,8 @@ private object ExecutableCallable {
                 index,
                 parameterArray(index),
                 parameterTypes(index),
-                getErasedTypeIfTypeVariable(genericParameterTypes(explicitlyDeclaredParameterIndex))
+                parameterArray(index).getAnnotatedType,
+                parameterArray(index).getAnnotations
               )
             )
             explicitlyDeclaredParameterIndex += 1
@@ -67,7 +69,8 @@ private object ExecutableCallable {
                 index,
                 parameterArray(index),
                 parameterTypes(index),
-                parameterTypes(index)))
+                parameterArray(index).getAnnotatedType,
+                parameterArray(index).getAnnotations))
           }
 
           index += 1
