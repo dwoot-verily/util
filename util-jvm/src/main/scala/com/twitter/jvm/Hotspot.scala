@@ -13,33 +13,43 @@ import javax.management.NotificationEmitter
 import javax.management.NotificationListener
 import javax.management.ObjectName
 import javax.management.RuntimeMBeanException
-import javax.naming.OperationNotSupportedException
+import sun.management.VMManagement
+import sun.management.HotspotRuntimeMBean
 import scala.jdk.CollectionConverters._
-import scala.language.reflectiveCalls
 
 class Hotspot extends Jvm {
   private[this] val epoch =
     Time.fromMilliseconds(ManagementFactory.getRuntimeMXBean.getStartTime)
 
-  private[this] type Counter = {
-    def getName(): String
-    def getUnits(): Object
-    def getValue(): Object
-  }
-
-  private[this] type VMManagement = {
-    def getInternalCounters(pat: String): java.util.List[Counter]
+  /**
+   * A wrapper around a `sun.management.Counter` that invokes its methods via
+   * `Method.invoke` rather than Scala structural-type dispatch (which requires
+   * `setAccessible` and fails under the Java 9+ module system).
+   */
+  private[this] final class Counter(val obj: AnyRef) {
+    private[this] val cls = obj.getClass
+    def getName(): String = cls.getMethod("getName").invoke(obj).asInstanceOf[String]
+    def getUnits(): Object = cls.getMethod("getUnits").invoke(obj)
+    def getValue(): Object = cls.getMethod("getValue").invoke(obj)
   }
 
   private[this] val DiagnosticBean =
     ObjectName.getInstance("com.sun.management:type=HotSpotDiagnostic")
 
-  private[this] val jvm: VMManagement = {
-    val fld = Class
-      .forName("sun.management.ManagementFactoryHelper")
-      .getDeclaredField("jvm")
-    fld.setAccessible(true)
-    fld.get(null).asInstanceOf[VMManagement]
+  /**
+   * The `sun.management.VMManagement` instance, or null if unavailable.
+   * Falls back to null so that `counters()` degrades gracefully.
+   */
+  private[this] val jvmManagement: VMManagement = {
+    try {
+      val fld = Class
+        .forName("sun.management.ManagementFactoryHelper")
+        .getDeclaredField("jvm")
+      fld.setAccessible(true)
+      fld.get(null).asInstanceOf[VMManagement]
+    } catch {
+      case _: Throwable => null
+    }
   }
 
   private[this] def opt(name: String) =
@@ -56,18 +66,18 @@ class Hotspot extends Jvm {
 
   private[this] def long(c: Counter) = c.getValue().asInstanceOf[Long]
 
-  private[this] def counters(pat: String) = {
+  private[this] def counters(pat: String): Map[String, Counter] = {
+    if (jvmManagement == null)
+      return Map.empty[String, Counter]
     try {
-      val cs = jvm.getInternalCounters(pat).asScala
-      cs.map { c => c.getName() -> c }.toMap
+      val cs = jvmManagement.getInternalCounters(pat).asScala
+      cs.map { obj => val c = new Counter(obj); c.getName() -> c }.toMap
     } catch {
-      case e: OperationNotSupportedException =>
+      case _: Throwable =>
         log.log(
           Level.WARNING,
           s"failed to get internal JVM counters as these are not available on your JVM.")
         Map.empty[String, Counter]
-      case e: Throwable =>
-        throw e
     }
   }
 
@@ -158,26 +168,32 @@ class Hotspot extends Jvm {
 
   private val log = Logger.getLogger(getClass.getName)
 
-  private[this] val safepointBean = {
-    val runtimeBean = Class
-      .forName("sun.management.ManagementFactoryHelper")
-      .getMethod("getHotspotRuntimeMBean")
-      .invoke(null)
+  private[this] trait SafepointBean {
+    def getSafepointSyncTime: Long
+    def getTotalSafepointTime: Long
+    def getSafepointCount: Long
+  }
 
-    def asSafepointBean(x: AnyRef) = {
-      x.asInstanceOf[{
-        def getSafepointSyncTime: Long
-        def getTotalSafepointTime: Long
-        def getSafepointCount: Long
-      }]
-    }
+  private[this] val safepointBean: SafepointBean = {
     try {
-      asSafepointBean(runtimeBean)
+      val runtimeBean: HotspotRuntimeMBean = Class
+        .forName("sun.management.ManagementFactoryHelper")
+        .getMethod("getHotspotRuntimeMBean")
+        .invoke(null)
+        .asInstanceOf[HotspotRuntimeMBean]
+      new SafepointBean {
+        def getSafepointSyncTime: Long = runtimeBean.getSafepointSyncTime
+        def getTotalSafepointTime: Long = runtimeBean.getTotalSafepointTime
+        def getSafepointCount: Long = runtimeBean.getSafepointCount
+      }
     } catch {
-      // Handles possible name changes in new jdk versions
       case t: Throwable =>
         log.log(Level.WARNING, "failed to get runtimeBean", t)
-        asSafepointBean(NilSafepointBean)
+        new SafepointBean {
+          def getSafepointSyncTime: Long = NilSafepointBean.getSafepointSyncTime
+          def getTotalSafepointTime: Long = NilSafepointBean.getTotalSafepointTime
+          def getSafepointCount: Long = NilSafepointBean.getSafepointCount
+        }
     }
   }
 

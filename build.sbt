@@ -136,7 +136,10 @@ val baseSettings = Seq(
   javaOptions ++= gcJavaOptions,
   Test / javaOptions ++= travisTestJavaOptions,
   Test / javaOptions ++= Seq(
-    "--add-opens=java.base/java.lang=ALL-UNNAMED"
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--add-opens=java.base/java.util=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED"
   ),
   // -a: print stack traces for failing asserts
   testOptions += Tests.Argument(TestFrameworks.JUnit, "-a"),
@@ -492,7 +495,17 @@ lazy val utilJvm = Project(
     name := "util-jvm",
     libraryDependencies ++= Seq(
       "org.mockito" % "mockito-core" % mockitoVersion % "test",
-    ) ++ scalatestMockitoVersionedDep(scalaVersion.value)
+    ) ++ scalatestMockitoVersionedDep(scalaVersion.value),
+    // Allow access to internal sun.management APIs (e.g. ManagementFactoryHelper, VMManagement)
+    // required by Hotspot on Java 9+ where these packages are in restricted modules.
+    Compile / scalacOptions ++= Seq(
+      "-J--add-exports=java.management/sun.management=ALL-UNNAMED"
+    ),
+    Test / javaOptions ++= Seq(
+      "--add-opens=java.management/sun.management=ALL-UNNAMED",
+      "--add-exports=java.management/sun.management=ALL-UNNAMED"
+    ),
+    Test / fork := true
   ).dependsOn(utilApp, utilCore, utilStats)
 
 lazy val utilLint = Project(
@@ -716,5 +729,9 @@ lazy val utilZkTest = Project(
     sharedScala3EnabledSettings
   ).settings(
     name := "util-zk-test",
-    libraryDependencies += zkDependency
+    libraryDependencies ++= Seq(
+      zkDependency,
+      "io.dropwizard.metrics" % "metrics-core" % "4.2.30" % "test",
+      "org.xerial.snappy" % "snappy-java" % "1.1.10.7" % "test"
+    )
   ).dependsOn(utilCore % "test")

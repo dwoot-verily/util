@@ -51,6 +51,11 @@ private[validation] object Types {
     case argType if argType.isOption =>
       if (argType.typeArgs.nonEmpty) argType.typeArgs.head.erasure
       else classOf[Object]
+    case argType if argType.isCollection =>
+      // Map Scala collection types (Seq, List, Set, etc.) to java.lang.Iterable
+      // so that Hibernate's constraint validator lookup can resolve validators registered
+      // against java.lang.Iterable (e.g. SizeValidatorForIterable, NotEmptyValidatorForIterable).
+      classOf[java.lang.Iterable[_]]
     case argType
         if argType.isPrimitive && argType.simpleName == java.lang.Byte.TYPE.getSimpleName =>
       classOf[java.lang.Byte]

@@ -75,7 +75,8 @@ object ServerCnxnFactory {
       }
 
       def startup(server: ZooKeeperServer): Unit = {
-        val call = factory.getClass.getMethod("startup", server.getClass)
+        val call = factory.getClass.getMethods
+          .find(m => m.getName == "startup" && m.getParameterCount == 1).get
         call.invoke(factory, server)
       }
 

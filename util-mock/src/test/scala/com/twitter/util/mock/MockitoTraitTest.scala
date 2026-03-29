@@ -463,7 +463,7 @@ class MockitoTraitTest extends AnyFunSuite with Matchers with Mockito {
   test("simplify answer API (invocation usage)") {
     val org = mock[Org]
 
-    org.doSomethingWithThisInt(any[Int]) answers ((i: InvocationOnMock) => i.arg[Int](0) * 10 + 2)
+    org.doSomethingWithThisInt(any[Int]) answers ((i: InvocationOnMock) => i.getArgument[Int](0) * 10 + 2)
     org.doSomethingWithThisInt(4) should equal(42)
   }
 
@@ -481,7 +481,7 @@ class MockitoTraitTest extends AnyFunSuite with Matchers with Mockito {
     val org = mock[Org]
 
     org.doSomethingWithThisInt(any[Int]) answers ((i: InvocationOnMock) =>
-      i.arg[Int](0) * 10 + 2) andThenAnswer ((i: InvocationOnMock) => i.arg[Int](0) * 15 + 9)
+      i.getArgument[Int](0) * 10 + 2) andThenAnswer ((i: InvocationOnMock) => i.getArgument[Int](0) * 15 + 9)
 
     org.doSomethingWithThisInt(4) should equal(42)
     org.doSomethingWithThisInt(4) should equal(69)
@@ -739,6 +739,16 @@ class MockitoTraitTest extends AnyFunSuite with Matchers with Mockito {
       // must return false.
       def isExpired: Boolean = false
       def isCanceled: Boolean = false
+      override def futureValueImpl(pos: org.scalactic.source.Position)(
+        implicit config: PatienceConfig
+      ): T = {
+        val timeoutMs = config.timeout.totalNanos / 1000000
+        try Await.result(twitterFuture, timeoutMs.milliseconds)
+        catch {
+          case e: TimeoutException =>
+            throw new RuntimeException(s"Future timed out after ${timeoutMs}ms (${pos.fileName}:${pos.lineNumber})", e)
+        }
+      }
     }
 
   private final implicit def twitterDurationToScalaTestTimeout(duration: Duration): Timeout = {

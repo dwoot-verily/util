@@ -588,13 +588,43 @@ class ScalaValidator private[validation] (
     method: Method,
     returnValue: Any,
     groups: Class[_]*
-  ): Set[ConstraintViolation[T]] = underlying
-    .forExecutables().validateReturnValue(
-      obj,
-      method,
-      returnValue,
-      groups: _*
-    ).asScala.toSet
+  ): Set[ConstraintViolation[T]] = {
+    if (obj == null)
+      throw new IllegalArgumentException("The object to be validated must not be null.")
+    if (method == null)
+      throw new IllegalArgumentException("The method to be validated must not be null.")
+    // Use our custom validation path so that Scala-type-aware validators
+    // (e.g. SizeValidatorForIterable, NotEmptyValidatorForIterable) are resolved
+    // correctly for Seq and other Scala collection return types.
+    descriptorFactory.describe(method) match {
+      case Some(methodDescriptor) if methodDescriptor.annotations.nonEmpty =>
+        val returnScalaType = Reflector.scalaTypeOf(method.getGenericReturnType)
+        val path = PathImpl.createPathForExecutable(getExecutableMetaData(method))
+        path.addReturnValueNode()
+        val context = ValidationContext[T](
+          fieldName = Some(method.getName),
+          rootClazz = Some(obj.getClass.asInstanceOf[Class[T]]),
+          root = Some(obj),
+          leaf = Some(obj),
+          path = path
+        )
+        val results = new mutable.ListBuffer[ConstraintViolation[T]]()
+        methodDescriptor.annotations.foreach { constraint =>
+          results.appendAll(
+            isValid[T](
+              context = context,
+              constraint = constraint,
+              scalaType = returnScalaType,
+              value = returnValue,
+              groups = groups
+            )
+          )
+        }
+        results.toSet
+      case _ =>
+        Set.empty[ConstraintViolation[T]]
+    }
+  }
 
   /** @inheritdoc */
   def validateConstructorParameters[T](
@@ -751,7 +781,7 @@ class ScalaValidator private[validation] (
           if isConstraintAnnotation(constraintAnnotationType) =>
         AnnotationFactory.newInstance(constraintAnnotationType, attributes.asScala.toMap)
     }
-    validateFieldValue(fieldName, annotations.toArray, value, groups.toSeq).asJava
+    validateFieldValue(fieldName, annotations.toArray, value, groups).asJava
   }
 
   /**
@@ -1301,7 +1331,7 @@ class ScalaValidator private[validation] (
         case _ =>
           constraintDescriptorFactory.newConstraintDescriptor(
             name = context.fieldName.orNull,
-            clazz = scalaType.erasure,
+            clazz = Types.getJavaType(scalaType),
             declaringClazz = context.rootClazz.getOrElse(scalaType.erasure),
             annotation = constraint
           )
@@ -1315,13 +1345,51 @@ class ScalaValidator private[validation] (
           case Some(validator) =>
             validator // should already be initialized
           case _ =>
-            constraintValidatorManager
+            val javaType = Types.getJavaType(refinedScalaType)
+            val v = constraintValidatorManager
               .getInitializedValidator[Annotation](
-                Types.getJavaType(refinedScalaType),
+                javaType,
                 constraintDescriptor,
                 validatorFactory.constraintValidatorFactory,
                 validatorFactory.validatorFactoryScopedContext.getConstraintValidatorInitializationContext
               ).asInstanceOf[ConstraintValidator[Annotation, Any]]
+            if (v != null) v
+            else {
+              // Hibernate's internal type resolver cannot match Scala types (e.g. scala.collection.Iterable).
+              // Fall back to finding the validator from the registered set by checking if the value's
+              // class is assignable to the validator's supported type parameter.
+              findConstraintValidators(constraint.annotationType())
+                .find { cv =>
+                  cv.getClass.getGenericInterfaces.exists {
+                    case pt: java.lang.reflect.ParameterizedType =>
+                      pt.getRawType == classOf[ConstraintValidator[_, _]] &&
+                        pt.getActualTypeArguments.length == 2 && {
+                          // The second type arg is the supported value type.
+                          // It may be a Class (e.g. String), a ParameterizedType (e.g. Iterable[_]),
+                          // or a WildcardType.
+                          val supportedType = pt.getActualTypeArguments()(1)
+                          val rawSupportedClass: Option[Class[_]] = supportedType match {
+                            case c: Class[_] => Some(c)
+                            case inner: java.lang.reflect.ParameterizedType =>
+                              inner.getRawType match {
+                                case c: Class[_] => Some(c)
+                                case _ => None
+                              }
+                            case _ => None
+                          }
+                          rawSupportedClass.exists(c =>
+                            value != null && c.isAssignableFrom(value.getClass))
+                        }
+                    case _ => false
+                  }
+                }
+                .map { cv =>
+                  cv.asInstanceOf[ConstraintValidator[Annotation, _]]
+                    .initialize(constraint)
+                  cv.asInstanceOf[ConstraintValidator[Annotation, Any]]
+                }
+                .orNull
+            }
         }
 
         if (constraintValidator == null) {
