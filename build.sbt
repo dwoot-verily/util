@@ -2,7 +2,7 @@ Global / onChangedBuildSource := ReloadOnSourceChanges
 Global / excludeLintKeys += scalacOptions // might be actually unused in util-doc module but not sure
 
 // All Twitter library releases are date versioned as YY.MM.patch
-val releaseVersion = "24.8.0-SNAPSHOT"
+val releaseVersion = "24.9.0-SNAPSHOT"
 
 val slf4jVersion = "2.0.17"
 val jacksonVersion = "2.21.2"
@@ -381,11 +381,11 @@ lazy val utilCore = Project(
       if (scalaVersion.value.startsWith("2")) {
         Seq(
           "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
+          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.1.1"
         )
       } else {
         Seq(
-          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"
+          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.1.1"
         )
       }
     },
